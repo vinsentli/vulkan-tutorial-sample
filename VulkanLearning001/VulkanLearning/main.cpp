@@ -8,6 +8,7 @@
 #include <array>
 #include <chrono>
 #include <unordered_map>
+#include <random>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -56,6 +57,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 }
 
 static void framebufferResizeCallback(GLFWwindow * window, int width, int height);
+
+const int PARTICLE_COUNT = 64;
+
+struct Particle{
+    glm::vec2 position;
+    glm::vec2 velocity;
+    glm::vec4 color;
+};
 
 struct Vertex{
     glm::vec3 pos;
@@ -199,6 +208,9 @@ private:
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     
+    std::vector<VkBuffer> shaderStorageBuffers;
+    std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
+    
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
     
 private:
@@ -230,6 +242,7 @@ private:
         createTextureImageView();
         createTextureSampler();
         loadModel();
+        createShaderStorageBuffers();
         createVertexBuffer();
         createIndexBuffer();
         createCommandBuffers();
@@ -437,7 +450,9 @@ private:
         
         int i = 0;
         for (const auto& queueFamily : queueFamilies){
-            if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
+            if ((queueFamily.queueCount > 0) &&
+                (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
+                (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)){
                 indices.graphicsFamily = i;
             }
             
@@ -1432,6 +1447,53 @@ private:
         vkQueueWaitIdle(graphicsQueue);
         
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    }
+    
+    void createShaderStorageBuffers(){
+        shaderStorageBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        shaderStorageBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+        
+        // Initialize particles
+        std::default_random_engine rndEngine((unsigned)time(nullptr));
+        std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
+
+        // Initial particle positions on a circle
+        std::vector<Particle> particles(PARTICLE_COUNT);
+        for (auto& particle : particles) {
+            float r = 0.25f * sqrt(rndDist(rndEngine));
+            float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846;
+            float x = r * cos(theta) * HEIGHT / WIDTH;
+            float y = r * sin(theta);
+            particle.position = glm::vec2(x, y);
+            particle.velocity = glm::normalize(glm::vec2(x,y)) * 0.00025f;
+            particle.color = glm::vec4(rndDist(rndEngine), rndDist(rndEngine), rndDist(rndEngine), 1.0f);
+        }
+        
+        VkDeviceSize bufferSize = sizeof(Particle) * PARTICLE_COUNT;
+        
+        VkBuffer stagingBuffer;
+        VkDeviceMemory stagingBufferMemory;
+        
+        createBuffer(bufferSize,
+                     VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     stagingBuffer, stagingBufferMemory);
+        
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, particles.data(), (size_t)bufferSize);
+        vkUnmapMemory(device, stagingBufferMemory);
+        
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i){
+            createBuffer(bufferSize,
+                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                         VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                         shaderStorageBuffers[i], shaderStorageBuffersMemory[i]);
+            
+            copyBuffer(stagingBuffer, shaderStorageBuffers[i], bufferSize);
+        }
     }
     
     void createVertexBuffer(){
