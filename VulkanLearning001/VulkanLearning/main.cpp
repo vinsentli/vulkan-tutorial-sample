@@ -77,8 +77,6 @@ private:
     VkExtent2D swapChainExtent;
     std::vector<VkImageView> swapChainImageViews;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
-    VkShaderModule vertShaderModule;
-    VkShaderModule fragShaderModule;
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
@@ -91,13 +89,10 @@ private:
     size_t currentFrame = 0;
 
 private:
-    
     void initWindow() {
         glfwInit();
-
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
     }
     
@@ -154,7 +149,6 @@ private:
         vkDestroyInstance(instance, nullptr);
         
         glfwDestroyWindow(window);
-
         glfwTerminate();
     }
     
@@ -639,8 +633,8 @@ private:
         auto vertShaderCode = readFile("vert.spv");
         auto fragShaderCode = readFile("frag.spv");
         
-        vertShaderModule = createShaderModule(vertShaderCode);
-        fragShaderModule = createShaderModule(fragShaderCode);
+        VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+        VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
         
         VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
