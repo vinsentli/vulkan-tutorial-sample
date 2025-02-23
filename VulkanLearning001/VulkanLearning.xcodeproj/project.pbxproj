@@ -56,6 +56,7 @@
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = 792DD2CF2D1ACDF5008BCED0 /* Copy Files */;
 			membershipExceptions = (
+				images/texture.jpg,
 				shaders/frag.spv,
 				shaders/vert.spv,
 			);
