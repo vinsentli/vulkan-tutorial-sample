@@ -63,6 +63,8 @@
 				shaders/particle_comp.spv,
 				shaders/particle_frag.spv,
 				shaders/particle_vert.spv,
+				shaders/triangle_frag.spv,
+				shaders/triangle_vert.spv,
 				shaders/vert.spv,
 			);
 		};
