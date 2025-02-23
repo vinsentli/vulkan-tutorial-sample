@@ -57,6 +57,8 @@
 			buildPhase = 792DD2CF2D1ACDF5008BCED0 /* Copy Files */;
 			membershipExceptions = (
 				images/texture.jpg,
+				models/viking_room.obj,
+				models/viking_room.png,
 				shaders/frag.spv,
 				shaders/vert.spv,
 			);
