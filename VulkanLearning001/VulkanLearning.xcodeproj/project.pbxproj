@@ -60,6 +60,9 @@
 				models/viking_room.obj,
 				models/viking_room.png,
 				shaders/frag.spv,
+				shaders/particle_comp.spv,
+				shaders/particle_frag.spv,
+				shaders/particle_vert.spv,
 				shaders/vert.spv,
 			);
 		};
