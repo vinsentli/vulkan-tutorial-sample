@@ -59,6 +59,7 @@ private:
         createInstance();
         setupDebugCallback();
         pickPhysicalDevice();
+        createLogicalDevice();
     }
     
     void pickPhysicalDevice(){
@@ -183,11 +184,14 @@ private:
             requiredExtensions.emplace_back(glfwExtensions[i]);
         }
         
-        requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-        
         if (enableValidationLayers){
             requiredExtensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
+        
+#if defined __APPLE__ && defined __arm64__
+        requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        requiredExtensions.emplace_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+#endif
         
         return requiredExtensions;
     }
@@ -256,6 +260,47 @@ private:
             func(instance, callback, pAllocator);
         }
     }
+    
+    void createLogicalDevice(){
+        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+        
+        VkDeviceQueueCreateInfo queueCreateInfo = {};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = indices.graphicsFamily;
+        queueCreateInfo.queueCount = 1;
+        float queuePriority = 1.0f;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+        
+        VkPhysicalDeviceFeatures deviceFeatues = {};
+        
+        VkDeviceCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = &queueCreateInfo;
+        createInfo.queueCreateInfoCount = 1;
+        createInfo.pEnabledFeatures = &deviceFeatues;
+        
+        std::vector<const char *> extensions;
+        
+#if defined __APPLE__ && defined __arm64__
+        extensions.emplace_back("VK_KHR_portability_subset");
+#endif
+        
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+        createInfo.ppEnabledExtensionNames = extensions.data();
+        
+        if (enableValidationLayers){
+            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+            createInfo.ppEnabledLayerNames = validationLayers.data();
+        } else {
+            createInfo.enabledLayerCount = 0;
+        }
+        
+        if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS){
+            throw std::runtime_error("failed to create logical device!");
+        }
+        
+        vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
+    }
 
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
@@ -268,6 +313,8 @@ private:
             DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
         }
         
+        vkDestroyDevice(device, nullptr);
+        
         vkDestroyInstance(instance, nullptr);
         
         glfwDestroyWindow(window);
@@ -279,7 +326,11 @@ private:
     GLFWwindow* window = nullptr;
     VkInstance instance;
     VkDebugUtilsMessengerEXT callback;
+    //物理设备
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    //逻辑设备
+    VkDevice device;
+    VkQueue graphicsQueue;
 };
 
 int main() {
