@@ -145,10 +145,12 @@ namespace std {
 }
 
 struct UniformBufferObject{
-//    glm::mat4 model;
-//    glm::mat4 view;
-//    glm::mat4 proj;
-    
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
+struct ParticleUniformBufferObject{
     float deltaTime = 1.0f;
 };
 
@@ -227,7 +229,6 @@ private:
     VkCommandPool commandPool;
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkCommandBuffer> computeCommandBuffers;
-    std::vector<void*> uniformBuffersMapped;
     
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -256,6 +257,10 @@ private:
     
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
+    
+    std::vector<VkBuffer> particleUniformBuffers;
+    std::vector<VkDeviceMemory> particleUniformBuffersMemory;
+    std::vector<void*> particleUniformBuffersMapped;
     
     std::vector<VkBuffer> shaderStorageBuffers;
     std::vector<VkDeviceMemory> shaderStorageBuffersMemory;
@@ -340,6 +345,8 @@ private:
         for (size_t i = 0; i < swapChainImages.size() ; ++i){
             vkDestroyBuffer(device, uniformBuffers[i], nullptr);
             vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+            vkDestroyBuffer(device, particleUniformBuffers[i], nullptr);
+            vkFreeMemory(device, particleUniformBuffersMemory[i], nullptr);
         }
         
         vkDestroySampler(device, textureSampler, nullptr);
@@ -1042,9 +1049,9 @@ private:
         
         for (size_t i = 0 ; i < MAX_FRAMES_IN_FLIGHT ; ++i){
             VkDescriptorBufferInfo bufferInfo = {};
-            bufferInfo.buffer = uniformBuffers[i];
+            bufferInfo.buffer = particleUniformBuffers[i];
             bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
+            bufferInfo.range = sizeof(ParticleUniformBufferObject);
             
             std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1343,11 +1350,30 @@ private:
         }
 #endif
 #else
-        particleGraphicsPipeline = createGraphicsPipeline("triangle_vert.spv", "triangle_frag.spv",
-                                                          nullptr,
-                                                          {},
-                                                          nullptr, particlePipelineLayout,
-                                                          VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        {
+            VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+            colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT ;
+            colorBlendAttachment.blendEnable = VK_FALSE;
+            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+            
+            VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+            depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+            depthStencil.depthTestEnable = VK_FALSE;
+            depthStencil.depthWriteEnable = VK_FALSE;
+            
+            particleGraphicsPipeline = createGraphicsPipeline("triangle_vert.spv", "triangle_frag.spv",
+                                                              nullptr,
+                                                              {},
+                                                              nullptr, particlePipelineLayout,
+                                                              VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                                                              &colorBlendAttachment,
+                                                              &depthStencil);
+        }
 #endif
     }
         
@@ -1946,20 +1972,24 @@ private:
     }
     
     void createUniformBuffer(){
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-        
         auto size = std::max(swapChainImages.size(), (size_t)MAX_FRAMES_IN_FLIGHT);
         
         uniformBuffers.resize(size);
         uniformBuffersMemory.resize(size);
-        uniformBuffersMapped.resize(size);
+        particleUniformBuffers.resize(size);
+        particleUniformBuffersMemory.resize(size);
+        particleUniformBuffersMapped.resize(size);
         
         for (size_t i = 0; i < size ; ++i){
-            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            createBuffer(sizeof(UniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                          uniformBuffers[i], uniformBuffersMemory[i]);
             
-            vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+            createBuffer(sizeof(ParticleUniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         particleUniformBuffers[i], particleUniformBuffersMemory[i]);
+            
+            vkMapMemory(device, particleUniformBuffersMemory[i], 0, sizeof(ParticleUniformBufferObject), 0, &particleUniformBuffersMapped[i]);
         }
     }
     
@@ -2178,7 +2208,7 @@ private:
         }
     }
     
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, VkPipeline pipeline, bool is_particle) {
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
         VkCommandBufferBeginInfo beginInfo = {};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
@@ -2204,25 +2234,18 @@ private:
         
         vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         
+        VkDeviceSize offsets[] = {0};
+        
         //Bind Graphic Pipeline
         {
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
             
             VkBuffer vertexBuffers[] = {vertexBuffer};
-            VkDeviceSize offsets[] = {0};
             
-            if (is_particle){
-                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &shaderStorageBuffers[currentFrame], offsets);
-            }
-            else{
-                vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-            }
             
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
             vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-            
-            if (!is_particle){
-                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[imageIndex], 0, nullptr);
-            }
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[imageIndex], 0, nullptr);
             
             VkViewport viewport = {};
             viewport.x = 0.0f;
@@ -2238,12 +2261,13 @@ private:
             scissor.extent = swapChainExtent;
             vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
             
-            if (is_particle){
-                vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
-//                vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-            } else {
-                vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-            }
+            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        }
+        
+        {
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &shaderStorageBuffers[currentFrame], offsets);
+            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, particleGraphicsPipeline);
+            vkCmdDraw(commandBuffer, PARTICLE_COUNT, 1, 0, 0);
         }
         
         vkCmdEndRenderPass(commandBuffer);
@@ -2279,7 +2303,7 @@ private:
     }
     
     void updateUniformBuffer(uint32_t currentImage){
-#if 0
+#if 1
         static auto startTime = std::chrono::high_resolution_clock::now();
         
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -2300,9 +2324,9 @@ private:
     
     void updateComputeUniformBuffer(uint32_t currentImage){
 #if 1
-        UniformBufferObject ubo{};
+        ParticleUniformBufferObject ubo{};
         ubo.deltaTime = lastFrameTime * 2.0f;
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+        memcpy(particleUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 #endif
     }
     
@@ -2317,6 +2341,7 @@ private:
         
         vkResetFences(device, 1, &computeInFlightFences[currentFrame]);
         vkResetCommandBuffer(computeCommandBuffers[currentFrame], 0);
+        
         recordComputeCommandBuffer(computeCommandBuffers[currentFrame]);
         
         submitInfo.commandBufferCount = 1;
@@ -2345,8 +2370,7 @@ private:
         updateUniformBuffer(imageIndex);
         
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
-//        recordCommandBuffer(commandBuffers[currentFrame], imageIndex, graphicsPipeline, false);
-        recordCommandBuffer(commandBuffers[currentFrame], imageIndex, particleGraphicsPipeline, true);
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
         
 #if 1
         int waitSemaphoreCount = 2;
