@@ -488,6 +488,11 @@ private:
         std::vector<VkLayerProperties> availableLayers(layerCount);
         vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
         
+        std::cout <<"available layers:"<<std::endl;
+        for (const auto & layerProperties : availableLayers){
+            std::cout<<"\t"<<layerProperties.layerName <<std::endl;
+        }
+        
         for (const char * layerName : validationLayers){
             bool layerFound = false;
             
@@ -612,7 +617,11 @@ private:
         
         std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
         
+        std::cout<<"device extension properties:\n";
+        
         for (const auto& extension : availableExtensions){
+            std::cout<<"\t"<<extension.extensionName<<std::endl;
+            
             auto count = requiredExtensions.erase(extension.extensionName);
             if (count > 0){
                 std::cout << "Support device extension : " << extension.extensionName << std::endl;
