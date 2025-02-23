@@ -15,6 +15,10 @@ const std::vector<const char *> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
 
+const std::vector<const char *> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -101,7 +105,9 @@ private:
         
         QueueFamilyIndices indices = findQueueFamilies(device);
         
-        return indices.isComplete();
+        bool extensionsSupported = checkDeviceExtensionSupport(device);
+        
+        return indices.isComplete() && extensionsSupported;
     }
     
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device){
@@ -296,7 +302,7 @@ private:
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
         createInfo.pEnabledFeatures = &deviceFeatues;
         
-        std::vector<const char *> extensions;
+        std::vector<const char *> extensions(deviceExtensions);
         
 #if defined __APPLE__ && defined __arm64__
         extensions.emplace_back("VK_KHR_portability_subset");
@@ -324,6 +330,22 @@ private:
         if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS){
             throw std::runtime_error("failed to create window surface!");
         }
+    }
+    
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device){
+        uint32_t extensionCount;
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+        
+        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+        
+        std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+        
+        for (const auto& extension : availableExtensions){
+            requiredExtensions.erase(extension.extensionName);
+        }
+        
+        return requiredExtensions.empty();
     }
 
     void mainLoop() {
