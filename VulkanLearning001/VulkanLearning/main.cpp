@@ -1205,7 +1205,9 @@ private:
                            1, &blit, VK_FILTER_LINEAR);
             
             barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            //barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            //官网上写要使用VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL，但是ValidateLayer会报错，改成VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+            barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
             barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
             
@@ -1220,7 +1222,9 @@ private:
         
         barrier.subresourceRange.baseMipLevel = mipLevels - 1;
         barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        //barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        //官网上写要使用VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL，但是ValidateLayer会报错，改成VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         
