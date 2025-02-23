@@ -51,9 +51,23 @@
 		792DD2F02D1AD3E1008BCED0 /* libvulkan.1.3.296.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libvulkan.1.3.296.dylib; path = ../../../../VulkanSDK/1.3.296.0/macOS/lib/libvulkan.1.3.296.dylib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		79EDDB5B2D2692C000A734DE /* Exceptions for "VulkanLearning" folder in "Copy Files" phase from "VulkanLearning" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 792DD2CF2D1ACDF5008BCED0 /* Copy Files */;
+			membershipExceptions = (
+				shaders/frag.spv,
+				shaders/vert.spv,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		792DD2D32D1ACDF5008BCED0 /* VulkanLearning */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				79EDDB5B2D2692C000A734DE /* Exceptions for "VulkanLearning" folder in "Copy Files" phase from "VulkanLearning" target */,
+			);
 			path = VulkanLearning;
 			sourceTree = "<group>";
 		};
